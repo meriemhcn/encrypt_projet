@@ -1,1 +1,1 @@
-le code se trouve dans le fichier versionfinale.py
+le programme principal se trouve dans le fichier versionfinale.py
