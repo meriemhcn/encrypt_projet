@@ -135,7 +135,13 @@ def decrypt_rsa(ciphertext, private_key):
 
 def RSA_run():
     global current_frame
-    public_key_base64 = RSA_enc_entry2.get().strip()
+    try:
+        public_key_base64 = RSA_enc_entry2.get().strip()
+        public_key = base64_to_public_key(public_key_base64)
+    except Exception as e:
+        messagebox.showerror("Invalid Key", f"Failed to load public key: {str(e)}")
+        return None
+    
     public_key = base64_to_public_key(public_key_base64)
     
     plaintext = RSA_enc_entry.get().strip().encode()
@@ -153,8 +159,13 @@ def RSA_run():
 
 def RSA_run_dec():
     global current_frame
-    private_key_base64 = RSA_dec_entry2.get().strip()
-    private_key = base64_to_private_key(private_key_base64)
+    try:
+        private_key_base64 = RSA_dec_entry2.get().strip()
+        private_key = base64_to_private_key(private_key_base64)
+    except Exception as e:
+        messagebox.showerror("Invalid Key", f"Failed to load public key: {str(e)}")
+        return None
+    
     
     ciphertext_hex = RSA_dec_entry.get().strip()
     encrypted_text = bytes.fromhex(ciphertext_hex)
