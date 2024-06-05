@@ -10,8 +10,10 @@ private_key = rsa.generate_private_key(
     key_size=2048,
     backend=default_backend()
 )
+print(private_key)
+print ("****************arret****************")
 public_key = private_key.public_key()
-
+print(public_key)
 def encrypt_rsa(plain_text, public_key):
     encrypted_text = public_key.encrypt(
         plain_text.encode(),
