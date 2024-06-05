@@ -57,99 +57,115 @@ def verify_des_key(key):
        return False
     return True
 
-def verify_rsa_key(key):
-    try:
-        RSA.import_key(key)
-        return True
-    except ValueError:
-        messagebox.showerror("Erreur de clé RSA", "La clé RSA fournie n'est pas valide.")
-        return False
-    
-'''# Générer des clés publique et privée
-private_key = rsa.generate_private_key(
-    public_exponent=65537,
-    key_size=2048,
-    backend=default_backend()
-)
-public_key = private_key.public_key()'''
+# Fonction pour copier la clé publique
+def copy_public_key():
+    public_key_base64 = RSA_result_gen_pb.cget("text")
+    pyperclip.copy(public_key_base64)
 
-def load_rsa_key(key_str):
-    return serialization.load_pem_private_key(
-        key_str.encode('utf-8'),
-        password=None,
-        backend=default_backend()
+# Fonction pour copier la clé privée
+def copy_private_key():
+    private_key_base64 = RSA_result_gen_pv.cget("text")
+    pyperclip.copy(private_key_base64)
+
+def generate_keys():
+    """Génère une paire de clés RSA"""
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=2048
     )
+    public_key = private_key.public_key()
+    return private_key, public_key
 
-def encrypt_rsa(plain_text, key):
-    if not verify_rsa_key(key):
-        return None
-    encrypted_text = key.encrypt(
-        plain_text.encode(),
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
+
+def key_to_base64(key, is_private=False):
+
+    if is_private:
+        key_bytes = key.private_bytes(
+            encoding=serialization.Encoding.DER,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
         )
-    )
-    return encrypted_text
-
-def decrypt_rsa(encrypted_text, private_key):
-    if not verify_rsa_key(private_key):
-        return None
-    decrypted_text = private_key.decrypt(
-        encrypted_text,
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
+    else:
+        key_bytes = key.public_bytes(
+            encoding=serialization.Encoding.DER,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
         )
-    )
-    return decrypted_text.decode()
+    return base64.b64encode(key_bytes).decode('utf-8')
 
-'''def RSA_run():
+def base64_to_private_key(b64_key):
+    key_bytes = base64.b64decode(b64_key.encode('utf-8'))
+    return serialization.load_der_private_key(key_bytes, password=None, backend=default_backend())
+
+def base64_to_public_key(b64_key):
+    key_bytes = base64.b64decode(b64_key.encode('utf-8'))
+    return serialization.load_der_public_key(key_bytes, backend=default_backend())
+
+def generateur_key():
     global current_frame
-    key = RSA_enc_entry2.get().strip()
-    pkey=key.public_key()
-    plaintext = RSA_enc_entry.get().strip()
-    encrypted_text = encrypt_rsa(plaintext, pkey)
-    if encrypted_text:
-      RSA_enc_frame.place_forget()
-      result2_label_RSA.config(text=encrypted_text, fg=ACCENT_COLOR)  
-      result_frame_RSA.place(relx=0.5, rely=0.5, anchor='center')
-      current_frame=result_frame_RSA
-      pyperclip.copy(encrypted_text)
+    private_key, public_key = generate_keys()
+    private_key_b64 = key_to_base64(private_key, is_private=True)
+    public_key_b64 = key_to_base64(public_key)
+    RSA_result_gen_pb.config(text=public_key_b64) 
+    RSA_result_gen_pv.config(text=private_key_b64) 
+    current_frame=RSA_gen_frame 
     return None
-'''
+
+def encrypt_rsa(message, public_key):
+    ciphertext = public_key.encrypt(
+        message,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+    return ciphertext
+
+def decrypt_rsa(ciphertext, private_key):
+    plaintext = private_key.decrypt(
+        ciphertext,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+    return plaintext
+
 
 def RSA_run():
     global current_frame
-    key_str = RSA_enc_entry2.get().strip()  # Assurez-vous d'avoir la clé sous forme de chaîne
-    try:
-        key = load_rsa_key(key_str)
-        plaintext = RSA_enc_entry.get().strip()
-        encrypted_text = encrypt_rsa(plaintext, key.public_key())
-        if encrypted_text:
-            RSA_enc_frame.place_forget()
-            result2_label_RSA.config(text=encrypted_text, fg=ACCENT_COLOR)  
-            result_frame_RSA.place(relx=0.5, rely=0.5, anchor='center')
-            current_frame = result_frame_RSA
-            pyperclip.copy(encrypted_text)
-    except Exception as e:
-        messagebox.showerror("Erreur lors du chiffrement RSA", str(e))
+    public_key_base64 = RSA_enc_entry2.get().strip()
+    public_key = base64_to_public_key(public_key_base64)
+    
+    plaintext = RSA_enc_entry.get().strip().encode()
+    encrypted_text = encrypt_rsa(plaintext, public_key)
+    
+    if encrypted_text:
+        RSA_enc_frame.place_forget()
+        result2_label_RSA.config(text=encrypted_text.hex(), fg=ACCENT_COLOR)
+        result_frame_RSA.place(relx=0.5, rely=0.5, anchor='center')
+        current_frame = result_frame_RSA
+        encrypted_hex = encrypted_text.hex()
+        pyperclip.copy(encrypted_hex)
 
-        
-def RSA_run_dec():
-    global current_frame
-    key = RSA_dec_entry2.get().strip()
-    plaintext = RSA_dec_entry.get().strip()
-    decrypted_text = decrypt_rsa(plaintext, key)
-    if decrypted_text:
-      RSA_dec_frame.place_forget()
-      result2_label_RSA_dec.config(text=decrypted_text, fg=ACCENT_COLOR)  
-      result_frame_RSA_dec.place(relx=0.5, rely=0.5, anchor='center')
-      current_frame=result_frame_RSA_dec
     return None
 
+def RSA_run_dec():
+    global current_frame
+    private_key_base64 = RSA_dec_entry2.get().strip()
+    private_key = base64_to_private_key(private_key_base64)
+    
+    ciphertext_hex = RSA_dec_entry.get().strip()
+    encrypted_text = bytes.fromhex(ciphertext_hex)
+    decrypted_text = decrypt_rsa(encrypted_text, private_key)
+    
+    if decrypted_text:
+        RSA_dec_frame.place_forget()
+        result2_label_RSA_dec.config(text=decrypted_text.decode(), fg=ACCENT_COLOR)
+        result_frame_RSA_dec.place(relx=0.5, rely=0.5, anchor='center')
+        current_frame = result_frame_RSA_dec
+    return None
 
 def encrypt_aes(plaintext, key):
     if not verify_aes_key(key):
@@ -423,13 +439,19 @@ def return_to_previous_screen():
         result_frame_RSA_dec.place_forget()
         RSA_dec_frame.place(relx=0.5,rely=0.5,anchor='center')
         current_frame=RSA_dec_frame
+    elif current_frame==RSA_gen_frame:
+        RSA_gen_frame.place_forget()
+        RSA_enc_frame.place(relx=0.5,rely=0.5,anchor='center')
+        RSA_result_gen_pv.config(text="")
+        RSA_result_gen_pb.config(text="")
+        current_frame=RSA_enc_frame
     elif current_frame == zero_frame:
       pass
 
 
 # Configuration de la fenêtre principale
-window_width=600
-window_height=500
+window_width=700
+window_height=600
 
 root = tk.Tk()
 root.title("Cryptography")
@@ -549,8 +571,6 @@ result2_label_AES= tk.Label(result_frame_AES, bg=BG_COLOR, font=custom_font, fg=
 result2_label_AES.pack(pady=10)
 
 
-"""******************************************************************************************"""
-
 DES_enc_frame = tk.Frame(main_frame,bg=BG_COLOR)
 DES_enc_label= tk.Label(DES_enc_frame, text="DES (Data Encryption Standard)", fg="#7EFAD5", bg=BG_COLOR, font=bold_font)
 DES_enc_label.pack(pady=10)
@@ -574,8 +594,6 @@ result2_label_DES= tk.Label(result_frame_DES, bg=BG_COLOR, font=custom_font, fg=
 result2_label_DES.pack(pady=10)
 
 
-"""***************************************************************************"""
-
 RSA_enc_frame = tk.Frame(main_frame,bg=BG_COLOR)
 RSA_enc_label= tk.Label(RSA_enc_frame, text="RSA (Rivest–Shamir–Adleman)", fg="#7EFAD5", bg=BG_COLOR, font=bold_font)
 RSA_enc_label.pack(pady=10)
@@ -589,12 +607,33 @@ RSA_enc_entry2= tk.Entry(RSA_enc_frame,width=40, fg=LB_COLOR, bg=BG_COLOR, font=
 RSA_enc_entry2.pack(pady=10)
 RSA_enc_button = tk.Button(RSA_enc_frame, text=" crypter ",fg=FG_COLOR,bg=BUTTON_COLOR, font=custom_font, activeforeground=ACCENT_COLOR, command=RSA_run)
 RSA_enc_button.pack(pady=10)
+RSA_gen_enc_button = tk.Button(RSA_enc_frame, text=" Générateur de clé ",fg=FG_COLOR,bg=BUTTON_COLOR, font=custom_font, activeforeground=ACCENT_COLOR, command=lambda:toggle_frames(RSA_enc_frame,RSA_gen_frame))
+RSA_gen_enc_button.pack(pady=10)
+
+RSA_gen_frame = tk.Frame(main_frame,bg=BG_COLOR)
+RSA_gen_label_pb= tk.Label(RSA_gen_frame, text="Clé public", fg=LB_COLOR, bg=BG_COLOR, font=("Courier", 15))
+RSA_gen_label_pb.pack(pady=10)
+RSA_result_gen_pb= tk.Label(RSA_gen_frame, bg=BG_COLOR, font=("Courier", 6), fg=ACCENT_COLOR,wraplength=500)
+RSA_result_gen_pb.pack(pady=20)
+# Assurez-vous d'avoir des boutons dans votre interface pour appeler ces fonctions
+copy_public_key_button = tk.Button(RSA_gen_frame, text="Copier",fg=LB_COLOR,bg=BG_COLOR, font=("Courier", 10), activeforeground=ACCENT_COLOR, command=copy_public_key)
+copy_public_key_button.pack(pady=10)
+
+RSA_gen_label_pv= tk.Label(RSA_gen_frame, text="Clé privé", fg=LB_COLOR, bg=BG_COLOR, font=("Courier", 15))
+RSA_gen_label_pv.pack(pady=10)
+RSA_result_gen_pv= tk.Label(RSA_gen_frame, bg=BG_COLOR, font=("Courier", 6), fg=ACCENT_COLOR,wraplength=500)
+RSA_result_gen_pv.pack(pady=20)
+copy_private_key_button = tk.Button(RSA_gen_frame, text="Copier",fg=LB_COLOR,bg=BG_COLOR, font=("Courier", 10), activeforeground=ACCENT_COLOR, command=copy_private_key)
+copy_private_key_button.pack(pady=10)
+RSA_gen_button = tk.Button(RSA_gen_frame, text=" Générer ",fg=FG_COLOR,bg=BUTTON_COLOR, font=custom_font, activeforeground=ACCENT_COLOR, command=generateur_key)
+RSA_gen_button.pack(pady=10)
+
 
 # Frame pour afficher le résultat 
 result_frame_RSA = tk.Frame(main_frame, bg=BG_COLOR)
 result_label_RSA = tk.Label(result_frame_RSA,text="Le résultat est : ", bg=BG_COLOR, font=custom_font, fg=LB_COLOR)
 result_label_RSA.pack(pady=10)
-result2_label_RSA= tk.Label(result_frame_RSA, bg=BG_COLOR, font=custom_font, fg=ACCENT_COLOR)
+result2_label_RSA= tk.Label(result_frame_RSA, bg=BG_COLOR, font=custom_font, fg=ACCENT_COLOR,wraplength=500)
 result2_label_RSA.pack(pady=10)
 
 decrypt_meth_frame=tk.Frame(main_frame,bg=BG_COLOR)
